@@ -1,0 +1,16 @@
+{
+  "zones": [
+    {
+      "name": "Zone A: server room",
+      "polygon": [[100, 100], [400, 100], [400, 400], [100, 400]],
+      "restricted_start": "21:00",
+      "restricted_end": "06:00"
+    },
+    {
+      "name": "Zone B: lobby after hours",
+      "polygon": [[0, 0], [640, 0], [640, 200], [0, 200]],
+      "restricted_start": "23:00",
+      "restricted_end": "05:00"
+    }
+  ]
+}

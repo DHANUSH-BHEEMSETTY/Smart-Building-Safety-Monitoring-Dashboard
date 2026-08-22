@@ -1,0 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+.env
+.venv
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Datasets and Media
+data/
+datasets/
+images/
+labels/
+*.mp4
+*.avi
+*.mov
+
+# Model weights (Excluded by default due to size; can be force-added if needed)
+*.pt
+*.pth
+*.onnx
+
+# Credentials
+.env
+credentials.json
+*.pem
+*.key
+
+# Run outputs
+runs/
+runs_benchmark/
+
+# Submodules
+Real-Time-Restricted-Area-Monitoring-System-with-yolo-main/

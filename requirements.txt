@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+streamlit
+ultralytics
+opencv-python
+networkx
+matplotlib
+python-multipart
+streamlit-webrtc
