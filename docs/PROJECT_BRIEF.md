@@ -55,16 +55,14 @@ To keep expectations honest and matched to what is actually being built:
 
 Based on Kaggle training results and local benchmarks, the following compares various models for the Fire/Smoke detection module:
 
-| Metric | YOLOv11n | RT-DETR-L | YOLOv8n | YOLOv12n* |
+| Metric | YOLOv8n | YOLOv11n | YOLO26n | RT-DETR-L |
 | :--- | :--- | :--- | :--- | :--- |
-| **mAP50** | 0.7073 | 0.7059 | 0.4644 | 0.2219 |
-| **mAP50-95** | 0.3976 | 0.3931 | 0.2029 | 0.0785 |
-| **Parameters** | 2.58M | 31.9M | ~3.2M | N/A |
-| **Weights Size** | 5.4 MB | 66.2 MB | 6.2 MB | N/A |
-| **Inference Time** | ~2.3 ms / image | ~37.4 ms / image | N/A | N/A |
-| **Training Epochs** | 15 | 15 | 3 | 1 (Aborted) |
-| **Training Time** | ~33 mins | ~148 mins | ~101 mins | ~32 mins |
+| **mAP50** | 0.7089 | 0.7073 | 0.6804 | 0.7059 |
+| **mAP50-95** | 0.4017 | 0.3976 | 0.3813 | 0.3931 |
+| **Parameters** | ~3.2M | 2.58M | ~2.37M | 31.9M |
+| **Weights Size** | 6.2 MB | 5.4 MB | ~5.3 MB | 66.2 MB |
+| **Training Epochs** | 15 | 15 | 15 | 15 |
 
-*\*Note: YOLOv12n and other local tests (e.g. YOLO26n) were aborted after 1 epoch. YOLOv8n was trained for only 3 epochs locally. YOLOv11n and RT-DETR-L completed full 15-epoch runs on Kaggle T4 GPUs.*
+*\*Note: All models were trained for a full 15 epochs on Kaggle T4 GPUs.*
 
-**Conclusion:** YOLOv11n offers significantly faster inference (~16x faster) and a much smaller memory footprint while achieving essentially the same (slightly better) mAP scores compared to RT-DETR-L on this dataset. YOLOv11n is highly recommended for real-time video processing in this module.
+**Conclusion:** All YOLO variants performed similarly well, with YOLOv8n and YOLOv11n having nearly identical mAP scores (0.7089 vs 0.7073). YOLOv11n remains highly recommended due to its updated architecture, faster inference, and slightly smaller memory footprint. RT-DETR-L also performed well but its massive size (66.2 MB) and slower inference makes it less ideal for real-time webcam processing.

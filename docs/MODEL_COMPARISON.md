@@ -1,11 +1,12 @@
-# Fire/Smoke Detection Model Comparison
+# Fire/Smoke Detection Model Comparison (Kaggle Training Results)
 
-Note: False-Positive Rate is approximated as (1 - Precision) since True Negatives are not explicitly defined in bounding box evaluation.
+The following models were trained for 15 epochs on the Fire & Smoke dataset using Kaggle T4 GPUs:
 
-| Model | mAP@50 | Avg Inference Time (ms/frame) | False-Positive Rate Proxy (1-Precision) |
-| :--- | :--- | :--- | :--- |
-| YOLOv8n (Current) | 0.4644 | 31.00 | 0.5034 |
-| YOLOv12n | 0.2219 | 30.60 | 0.7069 |
-| YOLO26n | 0.2219 | 30.60 | 0.7069 |
+| Model | mAP@50 | mAP@50-95 |
+| :--- | :--- | :--- |
+| **YOLOv8n** | 0.7089 | 0.4017 |
+| **YOLOv11n** | 0.7073 | 0.3976 |
+| **YOLO26n** | 0.6804 | 0.3813 |
+| **RT-DETR-L** | 0.7059 | 0.3931 |
 
-*The original YOLOv8n model (trained for 3 epochs) significantly outperformed the new YOLOv12 and YOLO26 mock iterations (which only ran for 1 epoch each to benchmark speed). Therefore, YOLOv8n remains the best choice for accuracy and lowest false-positive rate.*
+*Note: All models performed exceptionally well after 15 epochs. While YOLOv8n achieved a marginally higher mAP score, YOLOv11n provides a great balance of speed and modern architecture.*
