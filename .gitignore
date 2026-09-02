@@ -10,7 +10,7 @@ ENV/
 .env
 .venv
 
-# Jupyter Notebook
+# Jupyter Notebook checkpoints
 .ipynb_checkpoints
 
 # Datasets and Media
@@ -21,19 +21,22 @@ labels/
 *.mp4
 *.avi
 *.mov
+*.zip
 
-# Model weights (Excluded by default due to size; can be force-added if needed)
+# Model weights
 *.pt
 *.pth
 *.onnx
+# Include fine-tuned model weights in models/ for out-of-the-box teammate execution
+!models/*.pt
 
-# Credentials
+# Credentials & Secrets (NEVER COMMIT)
 .env
 credentials.json
 *.pem
 *.key
 
-# Run outputs
+# Run outputs & benchmarks
 runs/
 runs_benchmark/
 

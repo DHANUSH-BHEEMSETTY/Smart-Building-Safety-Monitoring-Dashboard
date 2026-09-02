@@ -32,20 +32,23 @@ def train_model():
     # Skip rewriting data.yaml because we already manually created a correct one
     yaml_path = os.path.join(dataset_dir, "data.yaml")
     
-    print("Initializing YOLO model...")
-    model = YOLO("yolov8n.pt")  # load a pretrained model
+    print("Initializing YOLOv11 model...")
+    model = YOLO("yolo11n.pt")  # YOLOv11 nano — best performing model from comparison
     
     print("Starting training...")
-    # Train the model
-    # Keep epochs low for the first pass as requested
+    # Train the model — 30 epochs to match the Kaggle training configuration
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     results = model.train(
         data=yaml_path,
-        epochs=3,
+        epochs=30,
         imgsz=640,
-        project="runs",
-        name="fire_smoke_det"
+        batch=16,
+        project=os.path.join(base_dir, "runs"),
+        name="fire_smoke_det_v11"
     )
     print("Training completed!")
+    print(f"Best weights saved to: runs/fire_smoke_det_v11/weights/best.pt")
+    print(f"Copy the best.pt to models/yolo11n_fire_smoke_best.pt to use in the dashboard.")
 
 if __name__ == "__main__":
     train_model()

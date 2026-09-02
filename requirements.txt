@@ -7,3 +7,4 @@ networkx
 matplotlib
 python-multipart
 streamlit-webrtc
+python-dotenv

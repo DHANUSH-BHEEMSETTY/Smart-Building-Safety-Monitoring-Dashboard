@@ -19,22 +19,25 @@ def download_and_train():
     data_yaml = yaml_files[0]
     print(f"Found data configuration at: {data_yaml}")
     
-    # Initialize YOLOv8n
-    print("Initializing YOLOv8n for fine-tuning...")
-    model = YOLO("yolov8n.pt")
+    # Initialize YOLOv11n — best performing model from comparison
+    print("Initializing YOLOv11n for fine-tuning...")
+    model = YOLO("yolo11n.pt")
     
-    # Train the model (Set epochs=1 for a quick test, or 50+ for actual accuracy)
+    # Train the model — 30 epochs to match the Kaggle training configuration
     print("Starting training...")
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     
     model.train(
         data=data_yaml,
-        epochs=10, 
+        epochs=30, 
         imgsz=640,
+        batch=16,
         project=os.path.join(base_dir, "runs"),
-        name="weapon_det"
+        name="weapon_det_v11"
     )
-    print("Training completed! The weapon model is now available in runs/weapon_det/weights/best.pt")
+    print("Training completed!")
+    print(f"Best weights saved to: runs/weapon_det_v11/weights/best.pt")
+    print(f"Copy the best.pt to models/yolo11n_weapon_best.pt to use in the dashboard.")
 
 if __name__ == "__main__":
     download_and_train()

@@ -1,0 +1,6 @@
+
+train: /kaggle/input/datasets/alinoorqureshi/weapon-detection-yolo-optimized/dataset_merged/train/images
+val: /kaggle/input/datasets/alinoorqureshi/weapon-detection-yolo-optimized/dataset_merged/val/images
+test: /kaggle/input/datasets/alinoorqureshi/weapon-detection-yolo-optimized/dataset_merged/test/images
+nc: 2
+names: ['gun', 'knife']

@@ -1,0 +1,6 @@
+
+train: /kaggle/input/datasets/sayedgamal99/smoke-fire-detection-yolo/data/train/images
+val: /kaggle/input/datasets/sayedgamal99/smoke-fire-detection-yolo/data/val/images
+test: /kaggle/input/datasets/sayedgamal99/smoke-fire-detection-yolo/data/test/images
+nc: 2
+names: ['smoke', 'fire']

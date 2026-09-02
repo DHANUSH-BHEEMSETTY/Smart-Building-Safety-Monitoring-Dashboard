@@ -1,45 +1,59 @@
-import numpy as np
-from inference import FireAlertManager
+import sys
+import os
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from modules.fire_detection.inference import FireAlertManager
 
 def simulate_detections(scenario_name, frames_detections):
-    print(f"\n--- Running Scenario: {scenario_name} ---")
-    alert_manager = FireAlertManager(history_size=10, alert_threshold=8, area_threshold_pct=5.0)
+    print(f"\n=======================================================")
+    print(f"🔬 SCENARIO: {scenario_name}")
+    print(f"=======================================================")
     
+    # Active production settings: 6-frame window, 3-frame threshold, 2.0% area threshold
+    alert_manager = FireAlertManager(history_size=6, alert_threshold=3, area_threshold_pct=2.0)
     frame_shape = (1080, 1920) # 1080p frame
     
     for i, frame_det in enumerate(frames_detections):
         status, conf, area_pct = alert_manager.process_detections(frame_det, frame_shape)
-        print(f"Frame {i+1:2d} | Status: {status:20s} | Max Conf: {conf:.2f} | Max Area: {area_pct:5.2f}%")
+        action = "🚨 DISPATCH TELEGRAM & EVAC" if status == "FULL_ALERT" else ("ℹ️ LOGGED ONLY (NO ALARM)" if status == "MINOR_LOW_SEVERITY" else "🟢 NORMAL (ZONE SECURED)")
+        print(f"Frame {i+1:2d} | Status: {status:18s} | Conf: {conf:.2f} | Area: {area_pct:4.2f}% | Action: {action}")
 
 def main():
-    # Scenario 1: Small brief flame (e.g. ~1% area, lasts 3 frames)
-    # A small flame [x1, y1, x2, y2] area = 1% of 1080x1920 = ~20,736 pixels (e.g. 100x207)
-    small_flame = [{"conf": 0.85, "xyxy": [100, 100, 200, 307]}] # Area = 100 * 207 = 20700 (1.00%)
+    # Small flame: 0.5% screen area (e.g. cigarette lighter, matchstick, candle flame)
+    # Area = 100x103 = 10,300 px (~0.50% of 1080x1920)
+    small_flame = [{"conf": 0.85, "xyxy": [100, 100, 200, 203]}]
     
-    scenario_1 = []
-    for i in range(10):
-        if 2 <= i <= 4:
-            scenario_1.append(small_flame)
+    # Large flame: 4.5% screen area (e.g. real growing corridor/room fire)
+    large_flame = [{"conf": 0.92, "xyxy": [100, 100, 400, 412]}]
+    
+    # Scenario 1: Brief Lighter / Match Flick (lasts only 2 frames, small area)
+    sc1 = []
+    for i in range(8):
+        if i in (1, 2):
+            sc1.append(small_flame)
         else:
-            scenario_1.append([]) # No detections
-            
-    simulate_detections("Small Brief Flame (Low Severity)", scenario_1)
+            sc1.append([])
+    simulate_detections("Brief Lighter/Match Flicker (Transient < 3 frames, < 2.0% area)", sc1)
     
-    # Scenario 2: Large sustained flame (e.g. ~10% area, lasts all frames)
-    # A large flame area = 10% of 1080x1920 = ~207,360 pixels (e.g. 400x518)
-    large_flame = [{"conf": 0.95, "xyxy": [100, 100, 500, 618]}] # Area = 400 * 518 = 207200 (9.99%)
-    
-    scenario_2 = []
-    for i in range(10):
-        scenario_2.append(large_flame)
-        
-    simulate_detections("Large Sustained Flame (Full Alert)", scenario_2)
+    # Scenario 2: Intermittent Reflections / Glare Glitches (1 frame every few frames)
+    sc2 = []
+    for i in range(8):
+        if i in (0, 4):
+            sc2.append(small_flame)
+        else:
+            sc2.append([])
+    simulate_detections("Intermittent Optical Glare / Glitches (Never sustained)", sc2)
 
-    # Scenario 3: Small but sustained flame
-    scenario_3 = []
-    for i in range(10):
-        scenario_3.append(small_flame)
-    simulate_detections("Small Sustained Flame (Full Alert after 8 frames)", scenario_3)
+    # Scenario 3: Real Outbreak / Large Flame (Area >= 2.0%)
+    sc3 = [large_flame] * 6
+    simulate_detections("Real Flame Outbreak (Area >= 2.0% -> Instant Full Emergency)", sc3)
+    
+    # Scenario 4: Small Flame that Grows Sustained (Persists for 3+ consecutive frames)
+    sc4 = [[]] + [small_flame] * 5
+    simulate_detections("Small Flame that Becomes Sustained (Persists >= 3 frames -> Escalates to Full Alert)", sc4)
 
 if __name__ == "__main__":
     main()

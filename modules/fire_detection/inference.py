@@ -1,63 +1,84 @@
 import os
 import cv2
 from ultralytics import YOLO
+from collections import deque
 
-# Global config
-MODEL_VERSION = "yolov8"  # Set to the best performing model (YOLOv8 outperformed others due to more epochs)
-
-# Global model instance
+# ---------------------------------------------------------------------------
+# Model loading — YOLOv11 trained weights (preferred), fallback to YOLOv8
+# ---------------------------------------------------------------------------
 model = None
 
 def get_model():
     global model
     if model is None:
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        
-        if MODEL_VERSION == "yolov8":
-            weights_path = os.path.join(base_dir, "runs", "fire_smoke_det", "weights", "best.pt")
-        elif MODEL_VERSION == "yolov12":
-            weights_path = os.path.join(base_dir, "runs_benchmark", "YOLOv12n_finetune", "weights", "best.pt")
-        elif MODEL_VERSION == "yolo26":
-            weights_path = os.path.join(base_dir, "runs_benchmark", "YOLO26n_finetune", "weights", "best.pt")
+
+        # Priority 1: YOLOv11 fine-tuned weights (from Kaggle training)
+        yolo11_path = os.path.join(base_dir, "models", "yolo11n_fire_smoke_best.pt")
+
+        # Priority 2: Legacy YOLOv8 weights (local training)
+        yolov8_path = os.path.join(base_dir, "runs", "fire_smoke_det", "weights", "best.pt")
+
+        if os.path.exists(yolo11_path):
+            print(f"[FireDetection] Loading YOLOv11 fire/smoke model from {yolo11_path}")
+            model = YOLO(yolo11_path)
+        elif os.path.exists(yolov8_path):
+            print(f"[FireDetection] YOLOv11 weights not found. Falling back to YOLOv8 weights at {yolov8_path}")
+            model = YOLO(yolov8_path)
         else:
-            raise ValueError(f"Unsupported MODEL_VERSION: {MODEL_VERSION}")
-            
-        if not os.path.exists(weights_path):
-            raise FileNotFoundError(f"Model weights not found at {weights_path}. Have you run the training or benchmark scripts?")
-        model = YOLO(weights_path)
+            raise FileNotFoundError(
+                f"No fire/smoke model weights found.\n"
+                f"  Expected YOLOv11: {yolo11_path}\n"
+                f"  Fallback YOLOv8:  {yolov8_path}\n"
+                f"Please ensure trained weights are located in the models/ directory."
+            )
     return model
 
-def detect_fire_raw(frame, conf_threshold=0.5):
+
+# ---------------------------------------------------------------------------
+# Raw detection — returns all detections above the confidence threshold
+# ---------------------------------------------------------------------------
+def detect_fire_raw(frame, conf_threshold=0.35):
     """
     Runs YOLO inference on a frame and returns raw detections above the confidence threshold.
+    Default threshold: 0.35 for robust, real-time fire and smoke localization.
     """
     m = get_model()
     results = m(frame, verbose=False)
-    
+
     detections = []
     for r in results:
         for box in r.boxes:
-            conf = box.conf[0].item()
+            conf = float(box.conf[0].item())
             if conf >= conf_threshold:
                 detections.append({
                     "conf": conf,
                     "xyxy": box.xyxy[0].cpu().numpy(),
-                    "cls": int(box.cls[0].item())
+                    "cls": int(box.cls[0].item()),
+                    "name": m.names.get(int(box.cls[0].item()), "hazard")
                 })
     return detections
 
-from collections import deque
 
+# ---------------------------------------------------------------------------
+# FireAlertManager — Multi-frame temporal filtering to prevent false alerts
+# ---------------------------------------------------------------------------
 class FireAlertManager:
-    def __init__(self, history_size=10, alert_threshold=8, area_threshold_pct=5.0):
+    def __init__(self, history_size=6, alert_threshold=3, area_threshold_pct=2.0):
         """
-        history_size: Number of frames to track for persistence.
-        alert_threshold: Minimum number of positive frames in history to trigger a sustained alert.
-        area_threshold_pct: Minimum bounding box area percentage to trigger an immediate alert (large fire).
+        Temporal filtering to distinguish real fires from transient single-frame glitches.
+        
+        history_size: Sliding window size (6 sampled frames ~ 1 sec of video).
+        alert_threshold: 3 positive detections within window triggers FULL_ALERT.
+        area_threshold_pct: Flame/smoke area >= 2.0% triggers immediate FULL_ALERT.
         """
         self.history = deque(maxlen=history_size)
         self.alert_threshold = alert_threshold
         self.area_threshold_pct = area_threshold_pct
+
+    def reset(self):
+        """Resets detection history (useful when starting a new video or session)."""
+        self.history.clear()
 
     def process_detections(self, detections, frame_shape):
         """
@@ -68,62 +89,64 @@ class FireAlertManager:
         frame_area = frame_shape[0] * frame_shape[1]
         highest_conf = 0.0
         max_area_pct = 0.0
-        
+
         for det in detections:
             conf = det['conf']
             if conf > highest_conf:
                 highest_conf = conf
-                
+
             x1, y1, x2, y2 = det['xyxy']
             area = (x2 - x1) * (y2 - y1)
             area_pct = (area / frame_area) * 100
             if area_pct > max_area_pct:
                 max_area_pct = area_pct
-                
+
         is_detected = len(detections) > 0
         self.history.append(is_detected)
-        
+
         sustained = sum(self.history) >= self.alert_threshold
         large = max_area_pct >= self.area_threshold_pct
-        
+
         status = "NORMAL"
         if is_detected:
             if sustained or large:
                 status = "FULL_ALERT"
             else:
                 status = "MINOR_LOW_SEVERITY"
-                
+
         return status, highest_conf, max_area_pct
 
-def detect_fire(frame, conf_threshold=0.5):
+
+# ---------------------------------------------------------------------------
+# Global alert manager instance — shared across frames for temporal filtering
+# ---------------------------------------------------------------------------
+_global_alert_manager = FireAlertManager(history_size=6, alert_threshold=3, area_threshold_pct=2.0)
+
+
+def reset_fire_alert_history():
+    """Resets the global persistence filter state."""
+    _global_alert_manager.reset()
+
+
+def detect_fire(frame, conf_threshold=0.35):
     """
-    Backwards compatible detect_fire function.
-    Returns (fire_detected, highest_confidence).
+    Main fire detection entry point with temporal filtering.
+    
+    Returns (status, highest_confidence) where status is one of:
+      - "NORMAL" — no fire detected (or transient noise filtered out)
+      - "MINOR_LOW_SEVERITY" — fire/smoke detected but building persistence history
+      - "FULL_ALERT" — sustained fire (>=3 detections) or large hazard (>=2% area) confirmed
     """
     detections = detect_fire_raw(frame, conf_threshold)
-    fire_detected = len(detections) > 0
-    highest_conf = max([d['conf'] for d in detections]) if fire_detected else 0.0
-    return fire_detected, highest_conf
+    status, highest_conf, _ = _global_alert_manager.process_detections(detections, frame.shape)
+    return status, highest_conf
 
+
+# ---------------------------------------------------------------------------
+# Standalone test
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    import glob
-    import random
-    
-    test_images_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "fire_dataset", "fire_smoke", "test", "images"))
-    
-    if os.path.exists(test_images_dir):
-        image_paths = glob.glob(os.path.join(test_images_dir, "*.jpg")) + glob.glob(os.path.join(test_images_dir, "*.png"))
-        if image_paths:
-            sample_paths = random.sample(image_paths, min(5, len(image_paths)))
-            alert_manager = FireAlertManager()
-            
-            print(f"Testing advanced inference on {len(sample_paths)} sample images...")
-            for img_path in sample_paths:
-                frame = cv2.imread(img_path)
-                if frame is None:
-                    continue
-                
-                detections = detect_fire_raw(frame)
-                status, conf, area_pct = alert_manager.process_detections(detections, frame.shape)
-                
-                print(f"[{os.path.basename(img_path)}] Status: {status} | Max Conf: {conf:.2f} | Area: {area_pct:.2f}%")
+    import numpy as np
+    dummy_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    status, conf = detect_fire(dummy_frame)
+    print(f"Test on blank frame: Status={status}, Conf={conf:.2f}")

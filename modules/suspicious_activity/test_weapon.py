@@ -3,63 +3,41 @@ import cv2
 import numpy as np
 import detection
 
-def mock_yolo_result(frame, verbose=False):
-    class MockBox:
-        def __init__(self):
-            import torch
-            self.conf = torch.tensor([0.92])
-            self.cls = torch.tensor([0]) # 0 for handgun/weapon in custom dataset
-            self.xyxy = torch.tensor([[150, 200, 350, 400]])
-
-    class MockResult:
-        def __init__(self):
-            self.boxes = [MockBox()]
-
-    return [MockResult()]
-
 def run_test():
     print("--- Running Weapon Detection Test ---")
     
-    # Try to grab an image from the downloaded dataset
-    import kagglehub
-    try:
-        dataset_path = kagglehub.dataset_download('raghavnanjappan/weapon-dataset-for-yolov5')
-        import glob
-        images = glob.glob(os.path.join(dataset_path, "**", "*.jpg"), recursive=True)
-        if images:
-            img_path = images[0]
-            print(f"Using sample image from dataset: {os.path.basename(img_path)}")
-            frame = cv2.imread(img_path)
-        else:
-            frame = np.ones((480, 640, 3), dtype=np.uint8) * 255
-    except Exception:
-        frame = np.ones((480, 640, 3), dtype=np.uint8) * 255
-    
-    # Retrieve the model
+    # Create a blank test frame
+    frame = np.ones((480, 640, 3), dtype=np.uint8) * 128  # gray frame
+
+    # Try to load the weapon model
     weapon_model = detection.get_weapon_model()
     
-    # If the user hasn't fine-tuned the model yet, it defaults to yolov8n.pt. 
-    # To demonstrate the alert logic without requiring a 1+ hour training session first, we mock it.
-    if hasattr(weapon_model, "ckpt_path") and weapon_model.ckpt_path.endswith("yolov8n.pt"):
-        print("Note: Fine-tuned weights not found yet. Using a mock YOLO detection to demonstrate the 'weapon_detected' alert pipeline.")
+    # Check if fine-tuned model is available
+    if not detection._weapon_model_available:
+        print("\nNote: Fine-tuned weapon model not available.")
+        print("Weapon detection is correctly DISABLED to prevent false positives.")
+        print("To enable, download the trained weights from Kaggle and place at:")
+        print("  models/yolo11n_weapon_best.pt")
+        print("\nDemonstrating with mock detection to verify alert pipeline...")
         
         # Override the detect_weapon function locally for the test
         original_detect_weapon = detection.detect_weapon
-        def mock_detect_weapon(frame, conf_threshold=0.5):
-            return [(150, 200, 350, 400, 0.92, 0)]
+        def mock_detect_weapon(frame, conf_threshold=0.65):
+            return [(150, 200, 350, 400, 0.92, 0, "gun")]
             
         detection.detect_weapon = mock_detect_weapon
     
-    # Run the function we just added (or the mock if overridden)
+    # Run the weapon detection (real or mock)
     boxes = detection.detect_weapon(frame)
     
     if len(boxes) > 0:
         print(f"\n[!] ALERT TRIGGERED: 'weapon_detected' [!]")
         print(f"Found {len(boxes)} weapon(s) in the frame.")
         for i, box in enumerate(boxes):
-            print(f"  Weapon {i+1} -> Bounding Box: {box[:4]}, Confidence: {box[4]:.2f}, Class ID: {box[5]}")
+            x1, y1, x2, y2, conf, cls_id, class_name = box
+            print(f"  Weapon {i+1} -> {class_name} | BBox: ({x1},{y1})-({x2},{y2}) | Confidence: {conf:.2f}")
     else:
-        print("No weapons detected.")
+        print("No weapons detected (model may be correctly filtering normal scene).")
 
 if __name__ == "__main__":
     run_test()
